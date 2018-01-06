@@ -136,7 +136,23 @@ void closeDiscFile() {
 
 unsigned long getFileSize(FILE *file) {
   fseek(file, 0L, SEEK_END);
-  return ftell(file);
+  unsigned long size = ftell(file);
+  fseek(file, 0, 0);
+  return size;
+}
+
+unsigned long getFileSizeOnDisc(char *filename) {
+  unsigned long adress = disc.superBlock.nodesOffset;
+  for(int i = 0; i < MAX_FILES_NUMBER; ++i) {
+    Node node;
+    fseek(disc.file, adress, 0);
+    fread(&node, sizeof(Node), 1, disc.file);
+
+    if(node.size != UNUSED && (strcmp(filename, node.filename) == 0))
+      return node.size;
+
+    adress += sizeof(Node);
+  }
 }
 
 int isFileExistsOnDisc(char *filename) {
@@ -151,6 +167,20 @@ int isFileExistsOnDisc(char *filename) {
   return 0;
 }
 
+long getFirstBlockIndexOfFile(char *filename) {
+  unsigned long adress = disc.superBlock.nodesOffset;
+  for(int i = 0; i < MAX_FILES_NUMBER; ++i) {
+    Node node;
+    fseek(disc.file, adress, 0);
+    fread(&node, sizeof(Node), 1, disc.file);
+
+    if(node.size != UNUSED && (strcmp(filename, node.filename) == 0))
+      return node.firstBlock;
+
+    adress += sizeof(Node);
+  }
+}
+
 void copyToDisc(char *filename) {
   FILE *copyFile = fopen(filename, "rb");
   if(!copyFile) {
@@ -160,7 +190,7 @@ void copyToDisc(char *filename) {
 
   unsigned long copyFileSize = getFileSize(copyFile);
   if(copyFileSize > disc.superBlock.freeBlocksNumber * BLOCK_SIZE) {
-    printf("ERROR: not enough space on sidc to copy file %s\n", filename);
+    printf("ERROR: not enough space on disc to copy file %s\n", filename);
     return;
   }
 
@@ -191,7 +221,8 @@ void copyToDisc(char *filename) {
 
   for(int i = 0; i < copyFileSizeInBlocks; ++i) {
     Block block;
-    fread(&block.data, BLOCK_SIZE, 1, copyFile);
+    fread(block.data, BLOCK_SIZE, 1, copyFile);
+    printf("\n%s\n", block.data);
     setBlockState(blockIndex, USED);
     int nextBlockIndex = getFirstFreeBlockIndex();
     if((i+1) == copyFileSizeInBlocks) nextBlockIndex = disc.superBlock.blocksNumber+1;
@@ -210,11 +241,48 @@ void copyToDisc(char *filename) {
   fclose(copyFile);
 }
 
+void copyfromDisc(char *filename) {
+  if(!isFileExistsOnDisc(filename)) {
+    printf("ERROR: no such file: %s on disc\n", filename);
+    return;
+  }
+
+  FILE *destinationFile = fopen("kopia.jpg", "wb+"); //TODO: change fixed name of file
+  if(!destinationFile) {
+    printf("ERROR: cannot create file %s\n", filename);
+    return;
+  }
+
+  long size = getFileSizeOnDisc(filename);
+  long blockIndex = getFirstBlockIndexOfFile(filename);
+  Block block;
+
+  do {
+    printf("blockIndex: %lu\n", blockIndex);
+    fseek(disc.file, disc.superBlock.blocksOffset + (blockIndex*sizeof(Block)), 0);
+    fread(&block, sizeof(Block), 1, disc.file);
+    size -= BLOCK_SIZE;
+
+    if(size < 0) fwrite(block.data, BLOCK_SIZE + size, 1, destinationFile);
+    else fwrite(block.data, BLOCK_SIZE, 1, destinationFile);
+
+    blockIndex = block.nextBlock;
+  } while(blockIndex != disc.superBlock.blocksNumber+1);
+
+  fclose(destinationFile);
+}
+
+
 int main(int argc, char** argv) {
 
   disc = newDiscInstance("dysk2", 100000);
   openDiscFile();
   copyToDisc("tree.jpg");
+  copyToDisc("tree2.jpg");
+  copyToDisc("a.txt");
+  copyToDisc("a.txt");
+  copyToDisc("tree2.jpg");
+  copyfromDisc("tree.jpg");
   printf("\n%lu\n", sizeof(Block));
   closeDiscFile();
 
