@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define BLOCK_SIZE 64
+#define BLOCK_SIZE 256
 #define FILENAME_LENGTH 16
 #define DISCNAME_LENGTH 16
 
@@ -244,7 +244,7 @@ void copyFromDisc(char *filename) {
     return;
   }
 
-  FILE *destinationFile = fopen("kopia.jpg", "wb+"); //TODO: change fixed name of file
+  FILE *destinationFile = fopen("drzewo.jpg", "wb+"); //TODO: change fixed name of file
   if(!destinationFile) {
     printf("ERROR: cannot create file %s\n", filename);
     return;
@@ -330,6 +330,40 @@ void listDisc() {
   }
 }
 
+void printDiscMap() {
+  unsigned long adress = 0;
+
+  SuperBlock superBlock;
+  fseek(disc.file, adress, 0);
+  fread(&superBlock, sizeof(SuperBlock), 1, disc.file);
+  printf("[%lu]\t%s\t%lu\t%d\n", adress, "SuperBlock", sizeof(SuperBlock), USED);
+
+  adress = disc.superBlock.nodesOffset;
+  for(int i = 0; i < MAX_FILES_NUMBER; ++i) {
+    Node node;
+    fseek(disc.file, adress, 0);
+    fread(&node, sizeof(Node), 1, disc.file);
+    int used = node.size != UNUSED ? 1 : 0;
+    printf("[%lu]\t%s\t\t%lu\t%d\n", adress, "Node", sizeof(Node), used);
+    adress += sizeof(Node);
+  }
+
+  printf("[%lu]\t%s\t%lu\t%d\n", adress, "BitVector",
+      disc.superBlock.blocksNumber*sizeof(int), 1);
+
+  adress = disc.superBlock.bitVectorOffset;
+  for(int i = 0; i < disc.superBlock.blocksNumber; ++i) {
+    int used;
+    fseek(disc.file, adress, 0);
+    fread(&used, sizeof(int), 1, disc.file);
+    if(used == UNUSED) used = 0;
+    printf("[%lu]\t%s\t\t%lu\t%d\n", disc.superBlock.blocksOffset+(i*sizeof(Block)),
+    "Block", sizeof(Block), used);
+    adress += sizeof(int);
+  }
+}
+
+
 int main(int argc, char** argv) {
 
   disc = newDiscInstance("dysk2", 100000);
@@ -339,10 +373,12 @@ int main(int argc, char** argv) {
   copyToDisc("a.txt");
   //listDisc();
   deleteFileFromDisc("tree.jpg");
-  listDisc();
+  copyToDisc("test0.txt");
   copyToDisc("tree2.jpg");
   copyFromDisc("tree2.jpg");
   //listDisc();
+  listDisc();
+  printDiscMap();
   closeDiscFile();
 
 
