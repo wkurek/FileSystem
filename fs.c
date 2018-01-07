@@ -112,7 +112,6 @@ int openDiscFile(char *filename) {
   if(!disc.file) return 0;
 
   fread(&disc.superBlock, sizeof(SuperBlock), 1, disc.file);
-  printf("SuperBlock freeNodesNumber:\t%d\n", disc.superBlock.freeNodesNumber);
 
   return 1;
 }
@@ -144,8 +143,8 @@ void closeDiscFile() {
   }
 }
 
-void deleteDisc() {
-  if(remove(disc.superBlock.name) == 0) {
+void deleteDisc(char *filename) {
+  if(remove(filename) == 0) {
     printf("Successfully deleted disc: %s\n", disc.superBlock.name);
   } else {
     printf("Cannot delete disc: %s\n", disc.superBlock.name);
@@ -262,7 +261,7 @@ void copyFromDisc(char *filename) {
     return;
   }
 
-  FILE *destinationFile = fopen("drzewo.jpg", "wb+"); //TODO: change fixed name of file
+  FILE *destinationFile = fopen(filename, "wb+");
   if(!destinationFile) {
     printf("ERROR: cannot create file %s\n", filename);
     return;
@@ -383,30 +382,45 @@ void printDiscMap() {
 
 
 int main(int argc, char** argv) {
-  //disc = newDiscInstance(100000);
-  openDiscFile("dysk3");
-  copyToDisc("tree.jpg");
-  copyToDisc("tree2.jpg");
-  listDisc();
-  closeDiscFile();
 
+  if(argc < 2 || !strcmp(argv[1], "-h")) {
+    //TODO: help mode
+    return 0;
+  }
 
-  //disc = newDiscInstance("dysk2", 100000);
-  //openDiscFile("dysk2");
-  //listDisc();
-  /*copyToDisc("tree.jpg");
-  copyToDisc("tree2.jpg");
-  copyToDisc("a.txt");
-  //listDisc();
-  deleteFileFromDisc("tree.jpg");
-  copyToDisc("test0.txt");
-  copyToDisc("tree2.jpg");
-  copyFromDisc("tree2.jpg");
-  //listDisc();
-  listDisc();
-  printDiscMap();*/
-
-
+  switch(argv[2][1]) {
+    case 'n': if(argc < 4) return -1;
+            disc = newDiscInstance(atoi(argv[3]));
+            createDiscFile(argv[1]);
+            closeDiscFile();
+            break;
+    case 'l': openDiscFile(argv[1]);
+            listDisc();
+            closeDiscFile();
+            break;
+    case 'd': if(argc < 4) return -1;
+            openDiscFile(argv[1]);
+            deleteFileFromDisc(argv[3]);
+            closeDiscFile();
+            break;
+    case 'r': if(argc < 4) return -1;
+            deleteDisc(argv[3]);
+            break;
+    case 'v': if(argc < 4) return -1;
+            openDiscFile(argv[1]);
+            copyToDisc(argv[3]);
+            closeDiscFile();
+            break;
+    case 'c': if(argc < 4) return -1;
+            openDiscFile(argv[1]);
+            copyFromDisc(argv[3]);
+            closeDiscFile();
+            break;
+    case 'm': openDiscFile(argv[1]);
+            printDiscMap();
+            closeDiscFile();
+            break;
+  }
 
   return 0;
 }
