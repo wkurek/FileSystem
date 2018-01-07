@@ -42,10 +42,8 @@ typedef struct {
   FILE *file;
 } Disc;
 
-SuperBlock newSuperBlockInstance(char *name, unsigned long size) {
+SuperBlock newSuperBlockInstance(unsigned long size) {
   SuperBlock superBlock;
-  strcpy(superBlock.name, name);
-
   superBlock.blocksNumber = (size - MAX_FILES_NUMBER*sizeof(Node) - sizeof(SuperBlock))/
     (sizeof(Block) + sizeof(int));
   superBlock.freeBlocksNumber = superBlock.blocksNumber;
@@ -64,9 +62,9 @@ Node newNodeInstance() {
   return node;
 }
 
-Disc newDiscInstance(char *name, unsigned int size) {
+Disc newDiscInstance(unsigned int size) {
   Disc disc;
-  disc.superBlock = newSuperBlockInstance(name, size);
+  disc.superBlock = newSuperBlockInstance(size);
   return disc;
 }
 
@@ -109,9 +107,22 @@ int getFirstFreeNodeIndex() {
   return i-1;
 }
 
-int openDiscFile() {
+int openDiscFile(char *filename) {
+  disc.file = fopen(filename, "rb+");
+  if(!disc.file) return 0;
+
+  fread(&disc.superBlock, sizeof(SuperBlock), 1, disc.file);
+  printf("SuperBlock freeNodesNumber:\t%d\n", disc.superBlock.freeNodesNumber);
+
+  return 1;
+}
+
+int createDiscFile(char *filename) {
+  strcpy(disc.superBlock.name, filename);
+
   disc.file = fopen(disc.superBlock.name, "wb+");
   if(!disc.file) return 0;
+  unsigned long adress = 0;
 
   fwrite(&disc.superBlock, sizeof(SuperBlock), 1, disc.file);
 
@@ -124,13 +135,20 @@ int openDiscFile() {
     int j = UNUSED;
     fwrite(&j, sizeof(int), 1, disc.file);
   }
-
   return 1;
 }
 
 void closeDiscFile() {
   if(disc.file){
     fclose(disc.file);
+  }
+}
+
+void deleteDisc() {
+  if(remove(disc.superBlock.name) == 0) {
+    printf("Successfully deleted disc: %s\n", disc.superBlock.name);
+  } else {
+    printf("Cannot delete disc: %s\n", disc.superBlock.name);
   }
 }
 
@@ -365,10 +383,18 @@ void printDiscMap() {
 
 
 int main(int argc, char** argv) {
-
-  disc = newDiscInstance("dysk2", 100000);
-  openDiscFile();
+  //disc = newDiscInstance(100000);
+  openDiscFile("dysk3");
   copyToDisc("tree.jpg");
+  copyToDisc("tree2.jpg");
+  listDisc();
+  closeDiscFile();
+
+
+  //disc = newDiscInstance("dysk2", 100000);
+  //openDiscFile("dysk2");
+  //listDisc();
+  /*copyToDisc("tree.jpg");
   copyToDisc("tree2.jpg");
   copyToDisc("a.txt");
   //listDisc();
@@ -378,8 +404,8 @@ int main(int argc, char** argv) {
   copyFromDisc("tree2.jpg");
   //listDisc();
   listDisc();
-  printDiscMap();
-  closeDiscFile();
+  printDiscMap();*/
+
 
 
   return 0;
