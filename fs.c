@@ -275,8 +275,12 @@ void deleteNode(char *filename) {
     fseek(disc.file, adress, 0);
     fread(&node, sizeof(Node), 1, disc.file);
 
-    if(node.size != UNUSED && (strcmp(filename, node.filename) == 0))
-        node.size = UNUSED;
+    if(node.size != UNUSED && (strcmp(filename, node.filename) == 0)){
+      node.size = UNUSED;
+      fseek(disc.file, adress, 0);
+      fwrite(&node, sizeof(Node), 1, disc.file);
+      return;
+    }
 
     adress += sizeof(Node);
   }
@@ -311,6 +315,21 @@ void deleteFileFromDisc(char *filename) {
 
 }
 
+void listDisc() {
+  if(disc.superBlock.freeNodesNumber == MAX_FILES_NUMBER) return; //no files on disc
+
+  unsigned long adress = disc.superBlock.nodesOffset;
+  for(int i = 0; i < MAX_FILES_NUMBER; ++i) {
+    Node node;
+    fseek(disc.file, adress, 0);
+    fread(&node, sizeof(Node), 1, disc.file);
+    if(node.size != UNUSED) {
+      printf("%s\n", node.filename);
+    }
+    adress += sizeof(Node);
+  }
+}
+
 int main(int argc, char** argv) {
 
   disc = newDiscInstance("dysk2", 100000);
@@ -318,10 +337,12 @@ int main(int argc, char** argv) {
   copyToDisc("tree.jpg");
   copyToDisc("tree2.jpg");
   copyToDisc("a.txt");
+  //listDisc();
   deleteFileFromDisc("tree.jpg");
+  listDisc();
   copyToDisc("tree2.jpg");
-  copyFromDisc("tree.jpg");
-  printf("\n%lu\n", sizeof(Block));
+  copyFromDisc("tree2.jpg");
+  //listDisc();
   closeDiscFile();
 
 
