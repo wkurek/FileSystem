@@ -205,7 +205,6 @@ void copyToDisc(char *filename) {
   }
 
   int blockIndex = getFirstFreeBlockIndex();
-  printf("blockIndex: %d\n", blockIndex);
 
   int nodeIndex = getFirstFreeNodeIndex();
   Node node;
@@ -222,7 +221,6 @@ void copyToDisc(char *filename) {
   for(int i = 0; i < copyFileSizeInBlocks; ++i) {
     Block block;
     fread(block.data, BLOCK_SIZE, 1, copyFile);
-    printf("\n%s\n", block.data);
     setBlockState(blockIndex, USED);
     int nextBlockIndex = getFirstFreeBlockIndex();
     if((i+1) == copyFileSizeInBlocks) nextBlockIndex = disc.superBlock.blocksNumber+1;
@@ -230,7 +228,6 @@ void copyToDisc(char *filename) {
     fseek(disc.file, disc.superBlock.blocksOffset + (blockIndex*sizeof(Block)), 0);
     fwrite(&block, sizeof(Block), 1, disc.file);
     blockIndex = nextBlockIndex;
-    printf("blockIndex: %d\n", blockIndex);
   }
 
   disc.superBlock.freeNodesNumber -= 1;
@@ -241,7 +238,7 @@ void copyToDisc(char *filename) {
   fclose(copyFile);
 }
 
-void copyfromDisc(char *filename) {
+void copyFromDisc(char *filename) {
   if(!isFileExistsOnDisc(filename)) {
     printf("ERROR: no such file: %s on disc\n", filename);
     return;
@@ -258,7 +255,6 @@ void copyfromDisc(char *filename) {
   Block block;
 
   do {
-    printf("blockIndex: %lu\n", blockIndex);
     fseek(disc.file, disc.superBlock.blocksOffset + (blockIndex*sizeof(Block)), 0);
     fread(&block, sizeof(Block), 1, disc.file);
     size -= BLOCK_SIZE;
@@ -272,6 +268,48 @@ void copyfromDisc(char *filename) {
   fclose(destinationFile);
 }
 
+void deleteNode(char *filename) {
+  unsigned long adress = disc.superBlock.nodesOffset;
+  for(int i = 0; i < MAX_FILES_NUMBER; ++i) {
+    Node node;
+    fseek(disc.file, adress, 0);
+    fread(&node, sizeof(Node), 1, disc.file);
+
+    if(node.size != UNUSED && (strcmp(filename, node.filename) == 0))
+        node.size = UNUSED;
+
+    adress += sizeof(Node);
+  }
+}
+
+void deleteFileFromDisc(char *filename) {
+  if(!isFileExistsOnDisc(filename)) {
+    printf("ERROR: no such file: %s on disc\n", filename);
+    return;
+  }
+
+  long blockIndex = getFirstBlockIndexOfFile(filename);
+  long sizeInBlocks = 0;
+
+  do {
+    Block block;
+    fseek(disc.file, disc.superBlock.blocksOffset + (blockIndex*sizeof(Block)), 0);
+    fread(&block, sizeof(Block), 1, disc.file);
+
+    setBlockState(blockIndex, UNUSED);
+
+    blockIndex = block.nextBlock;
+    ++sizeInBlocks;
+  } while(blockIndex != disc.superBlock.blocksNumber+1);
+
+  deleteNode(filename);
+
+  disc.superBlock.freeNodesNumber += 1;
+  disc.superBlock.freeBlocksNumber += sizeInBlocks;
+  fseek(disc.file, 0, 0);
+  fwrite(&disc.superBlock, sizeof(SuperBlock), 1, disc.file);
+
+}
 
 int main(int argc, char** argv) {
 
@@ -280,9 +318,9 @@ int main(int argc, char** argv) {
   copyToDisc("tree.jpg");
   copyToDisc("tree2.jpg");
   copyToDisc("a.txt");
-  copyToDisc("a.txt");
+  deleteFileFromDisc("tree.jpg");
   copyToDisc("tree2.jpg");
-  copyfromDisc("tree.jpg");
+  copyFromDisc("tree.jpg");
   printf("\n%lu\n", sizeof(Block));
   closeDiscFile();
 
