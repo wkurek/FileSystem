@@ -145,9 +145,9 @@ void closeDiscFile() {
 
 void deleteDisc(char *filename) {
   if(remove(filename) == 0) {
-    printf("Successfully deleted disc: %s\n", disc.superBlock.name);
+    printf("Successfully deleted disc: %s\n", filename);
   } else {
-    printf("Cannot delete disc: %s\n", disc.superBlock.name);
+    printf("Cannot delete disc: %s\n", filename);
   }
 }
 
@@ -253,6 +253,8 @@ void copyToDisc(char *filename) {
   fwrite(&disc.superBlock, sizeof(SuperBlock), 1, disc.file);
 
   fclose(copyFile);
+
+  printf("file %s successfully copied to disc\n", filename);
 }
 
 void copyFromDisc(char *filename) {
@@ -283,6 +285,7 @@ void copyFromDisc(char *filename) {
   } while(blockIndex != disc.superBlock.blocksNumber+1);
 
   fclose(destinationFile);
+  printf("file %s successfully copied from disc\n", filename);
 }
 
 void deleteNode(char *filename) {
@@ -330,6 +333,7 @@ void deleteFileFromDisc(char *filename) {
   fseek(disc.file, 0, 0);
   fwrite(&disc.superBlock, sizeof(SuperBlock), 1, disc.file);
 
+  printf("file %s successfully deleted from disc\n", filename);
 }
 
 void listDisc() {
@@ -384,34 +388,56 @@ void printDiscMap() {
 int main(int argc, char** argv) {
 
   if(argc < 2 || !strcmp(argv[1], "-h")) {
-    //TODO: help mode
+    printf("----- help -----\n");
+    printf("create new disc:\t\tprogram disc_name -n size\n");
+    printf("delete disc:\t\t\tprogram disc_name -r\n");
+    printf("copy file to disc:\t\tprogram disc_name -v file_name\n");
+    printf("copy file from disc:\t\tprogram disc_name -c file_name\n");
+    printf("delete file from disc:\t\tprogram disc_name -d file_name\n");
+    printf("list disc dir:\t\t\tprogram disc_name -l\n");
+    printf("print disc map:\t\t\tprogram disc_name -m\n");
     return 0;
   }
 
   switch(argv[2][1]) {
-    case 'n': if(argc < 4) return -1;
+    case 'n': if(argc < 4) {
+              printf("ERROR: -n require additional arg: size\n");
+              return -1;
+            }
             disc = newDiscInstance(atoi(argv[3]));
-            createDiscFile(argv[1]);
+            if(createDiscFile(argv[1])) {
+              printf("successfully created disc %s\n", argv[1]);
+            } else {
+              printf("cannot create disc %s\n", argv[1]);
+            }
             closeDiscFile();
             break;
     case 'l': openDiscFile(argv[1]);
             listDisc();
             closeDiscFile();
             break;
-    case 'd': if(argc < 4) return -1;
+    case 'd': if(argc < 4) {
+              printf("ERROR: -d require additional arg: filename\n");
+              return -1;
+            }
             openDiscFile(argv[1]);
             deleteFileFromDisc(argv[3]);
             closeDiscFile();
             break;
-    case 'r': if(argc < 4) return -1;
-            deleteDisc(argv[3]);
+    case 'r': deleteDisc(argv[1]);
             break;
-    case 'v': if(argc < 4) return -1;
+    case 'v': if(argc < 4) {
+              printf("ERROR: -c require additional arg: filename\n");
+              return -1;
+            }
             openDiscFile(argv[1]);
             copyToDisc(argv[3]);
             closeDiscFile();
             break;
-    case 'c': if(argc < 4) return -1;
+    case 'c': if(argc < 4) {
+              printf("ERROR: -c require additional arg: filename\n");
+              return -1;
+            }
             openDiscFile(argv[1]);
             copyFromDisc(argv[3]);
             closeDiscFile();
